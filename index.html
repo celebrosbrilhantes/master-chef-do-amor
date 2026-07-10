@@ -148,6 +148,33 @@
     padding: 12px 14px;
     margin: 0 -12px 6px;
   }
+  .catalogo-titulo {
+    font-size: 16.5px;
+    font-weight: 800;
+    color: var(--wine);
+    margin: 14px 2px 4px;
+    line-height: 1.35;
+  }
+  .pilar-list { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+  .pilar-btn {
+    display: flex; align-items: center; gap: 14px;
+    background: var(--cream);
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    padding: 14px 16px;
+    cursor: pointer;
+    font-family: inherit;
+    text-align: left;
+    width: 100%;
+    transition: background 0.12s, transform 0.1s;
+  }
+  .pilar-btn:active { transform: scale(0.98); background: #f7e2c4; }
+  .pilar-btn .picon { font-size: 30px; line-height: 1; flex-shrink: 0; }
+  .pilar-btn .ptitulo { font-size: 17px; font-weight: 800; color: var(--wine); line-height: 1.25; }
+  .pilar-btn .psub { font-size: 14px; color: var(--ink-soft); margin-top: 3px; line-height: 1.3; }
+  .pilar-btn.featured { background: linear-gradient(135deg, var(--gold-2), var(--gold)); border-color: var(--gold); }
+  .pilar-btn.featured .ptitulo { color: var(--bg-deep); }
+  .pilar-btn.featured .psub { color: #5a3a10; }
   .region-title {
     font-size: 15px;
     font-weight: 800;
@@ -695,9 +722,30 @@ const REGIOES = [
   ]}
 ];
 
-/* Prompt enviado automaticamente quando o usuário toca num prato do catálogo */
+/* Nível 1 — pilares do cardápio. O pilar 'brasil' abre regiões/estados;
+   os demais têm lista simples de receitas. Para adicionar novos pilares no
+   futuro (organizar a cozinha, economia no mercado etc.), basta inserir aqui. */
+const PILARES = [
+  { id: 'brasil', emoji: '🇧🇷', titulo: 'Sabores do Brasil', subtitulo: 'As melhores receitas dos 27 estados — mais de 180 pratos típicos!', featured: true },
+  { emoji: '☕', titulo: 'Café da Manhã', subtitulo: 'Pra começar o dia com carinho', pratos: ['Tapioca recheada','Pão de queijo caseiro','Cuscuz com ovo','Ovos mexidos cremosos','Panqueca simples','Bolo de fubá','Vitamina de frutas','Café da Manhã do Rei e da Rainha'] },
+  { emoji: '🍛', titulo: 'Comida do Dia a Dia', subtitulo: 'Prático, gostoso e econômico', categorias: [
+    { emoji: '🍝', nome: 'Massas', pratos: ['Macarrão à bolonhesa','Macarrão alho e óleo','Lasanha de frango cremosa','Macarrão de forno','Nhoque de batata','Talharim ao molho branco','Espaguete com sardinha','Panqueca de carne'] },
+    { emoji: '🥩', nome: 'Carnes', pratos: ['Carne de panela macia','Bife acebolado','Carne moída refogada','Strogonoff de carne','Costela na pressão','Carne louca','Bife à parmegiana','Almôndegas ao molho'] },
+    { emoji: '🍗', nome: 'Frango', pratos: ['Frango assado de padaria','Strogonoff de frango','Frango grelhado suculento','Coxa e sobrecoxa ao forno','Frango desfiado pra tudo','Filé de frango empanado','Frango ao molho de tomate','Galinhada simples'] },
+    { emoji: '💰', nome: 'Receitas Econômicas', pratos: ['Arroz e feijão soltinho','Omelete caprichada','Arroz de forno com sobras','Sopa de legumes','Torta de liquidificador','Farofa completa','Ovo perfeito com arroz na hora','Risoto simples de arroz comum'] }
+  ]},
+  { emoji: '🍰', titulo: 'Doces e Sobremesas', subtitulo: 'Pra adoçar a vida', pratos: ['Brigadeiro','Pudim de leite','Bolo de chocolate','Bolo de cenoura com cobertura','Mousse de maracujá','Beijinho','Pavê de chocolate','Cocada'] },
+  { emoji: '💛', titulo: 'Receita Afetiva, para Alguém Especial', subtitulo: 'Cozinhar é dizer eu te amo', pratos: ['Café da Manhã do Rei e da Rainha','Bolo de aniversário caseiro','Jantar romântico simples','Lanchinho surpresa para os filhos','Sobremesa de casal','Café da tarde especial','Prato favorito de quem você ama','Marmita de carinho'] }
+];
+
+/* Prompt enviado ao tocar num prato do catálogo regional */
 function recipePrompt(estadoNome, prato){
   return `Me ensina a fazer ${prato} do jeito típico de ${estadoNome}`;
+}
+
+/* Prompt enviado ao tocar numa receita dos pilares simples */
+function pratoPrompt(prato){
+  return `Me ensina a fazer ${prato} passo a passo`;
 }
 
 /* ================= STATE ================= */
@@ -753,10 +801,12 @@ function renderAll(){
   chatEl.innerHTML = '';
   if(messages.length === 0){
     renderWelcomeBlock();
+    // Tela inicial abre no TOPO, com a mensagem de boas-vindas visível
+    requestAnimationFrame(()=>{ chatEl.scrollTop = 0; });
   } else {
     messages.forEach(m => renderStoredMessage(m));
+    scrollToBottom();
   }
-  scrollToBottom();
 }
 
 function renderWelcomeBlock(){
@@ -766,7 +816,7 @@ function renderWelcomeBlock(){
   const h2 = document.createElement('h2');
   h2.textContent = 'Oi! O que vamos cozinhar hoje?';
   const p = document.createElement('p');
-  p.textContent = 'Escolha um estado do Brasil abaixo, ou escreva o que quiser ali embaixo.';
+  p.textContent = 'Receitas típicas de todo o Brasil, café da manhã, doces e muito mais. Toque numa opção ou escreva o que quiser.';
 
   block.appendChild(h2);
   block.appendChild(p);
@@ -791,8 +841,8 @@ function exigeConfiguracao(acaoAposSalvar){
 /* ================= CATÁLOGO — 3 NÍVEIS ================= */
 
 /* Monta o catálogo completo: faixa fixa no topo + corpo que alterna entre
-   a tela de estados (nível 2) e a lista de pratos (nível 3).
-   A navegação é gratuita — nenhum toque aqui consome crédito. */
+   os níveis (pilares → estados → pratos). Navegação é gratuita —
+   crédito só é consumido quando a Chef Amor responde. */
 function buildCatalogGrid(){
   const wrap = document.createElement('div');
   wrap.className = 'catalogo-wrap';
@@ -805,19 +855,80 @@ function buildCatalogGrid(){
   const body = document.createElement('div');
   wrap.appendChild(body);
 
-  mostrarEstados(body);
+  mostrarPilares(wrap, body);
   return wrap;
 }
 
-/* Nível 2: tela única rolável — regiões como títulos (não clicáveis)
-   e estados como botões embaixo de cada título. */
-function mostrarEstados(body){
+/* Rola a tela para o topo do catálogo ao trocar de nível */
+function rolarParaTopoCatalogo(wrap){
+  requestAnimationFrame(()=>{ wrap.scrollIntoView({ block: 'start', behavior: 'smooth' }); });
+}
+
+/* Nível 1: os pilares do cardápio (menu inicial enxuto) */
+function mostrarPilares(wrap, body){
   body.innerHTML = '';
+
+  const titulo = document.createElement('div');
+  titulo.className = 'catalogo-titulo';
+  titulo.textContent = '📋 O que você quer cozinhar hoje?';
+  body.appendChild(titulo);
+
+  const list = document.createElement('div');
+  list.className = 'pilar-list';
+
+  PILARES.forEach(pilar => {
+    const btn = document.createElement('button');
+    btn.className = 'pilar-btn' + (pilar.featured ? ' featured' : '');
+
+    const icon = document.createElement('span');
+    icon.className = 'picon';
+    icon.textContent = pilar.emoji;
+
+    const textos = document.createElement('div');
+    const t = document.createElement('div');
+    t.className = 'ptitulo';
+    t.textContent = pilar.titulo;
+    textos.appendChild(t);
+    if(pilar.subtitulo){
+      const s = document.createElement('div');
+      s.className = 'psub';
+      s.textContent = pilar.subtitulo;
+      textos.appendChild(s);
+    }
+
+    btn.appendChild(icon);
+    btn.appendChild(textos);
+    btn.onclick = () => {
+      if(pilar.id === 'brasil'){
+        mostrarEstados(wrap, body);
+      } else if(pilar.categorias){
+        mostrarCategorias(wrap, body, pilar);
+      } else {
+        mostrarPratosSimples(wrap, body, pilar);
+      }
+      rolarParaTopoCatalogo(wrap);
+    };
+    list.appendChild(btn);
+  });
+
+  body.appendChild(list);
+}
+
+/* Nível 2 (Sabores do Brasil): tela única rolável — regiões como títulos
+   (não clicáveis) e estados como botões embaixo de cada título. */
+function mostrarEstados(wrap, body){
+  body.innerHTML = '';
+
+  const titulo = document.createElement('div');
+  titulo.className = 'catalogo-titulo';
+  titulo.textContent = '🇧🇷 As melhores receitas de todos os cantos do Brasil — escolha um estado:';
+  body.appendChild(titulo);
+
   REGIOES.forEach(regiao => {
-    const titulo = document.createElement('div');
-    titulo.className = 'region-title';
-    titulo.textContent = `${regiao.emoji} ${regiao.nome}`;
-    body.appendChild(titulo);
+    const rt = document.createElement('div');
+    rt.className = 'region-title';
+    rt.textContent = `${regiao.emoji} ${regiao.nome}`;
+    body.appendChild(rt);
 
     const grid = document.createElement('div');
     grid.className = 'state-grid';
@@ -826,18 +937,24 @@ function mostrarEstados(body){
       btn.className = 'state-btn';
       btn.textContent = estado.nome;
       btn.onclick = () => {
-        mostrarPratos(body, estado);
-        body.scrollIntoView({ block: 'start', behavior: 'smooth' });
+        mostrarPratos(wrap, body, estado);
+        rolarParaTopoCatalogo(wrap);
       };
       grid.appendChild(btn);
     });
     body.appendChild(grid);
   });
+
+  const backBtn = document.createElement('button');
+  backBtn.className = 'recipe-back-btn';
+  backBtn.textContent = '← Voltar ao cardápio';
+  backBtn.onclick = () => { mostrarPilares(wrap, body); rolarParaTopoCatalogo(wrap); };
+  body.appendChild(backBtn);
 }
 
-/* Nível 3: lista de pratos do estado escolhido.
+/* Nível 3 (Sabores do Brasil): pratos do estado escolhido.
    Tocar num prato envia o prompt automático (a resposta consome 1 crédito). */
-function mostrarPratos(body, estado){
+function mostrarPratos(wrap, body, estado){
   body.innerHTML = '';
 
   const label = document.createElement('div');
@@ -866,7 +983,105 @@ function mostrarPratos(body, estado){
   const backBtn = document.createElement('button');
   backBtn.className = 'recipe-back-btn';
   backBtn.textContent = '← Voltar para os estados';
-  backBtn.onclick = () => mostrarEstados(body);
+  backBtn.onclick = () => { mostrarEstados(wrap, body); rolarParaTopoCatalogo(wrap); };
+  body.appendChild(backBtn);
+}
+
+/* Nível 2 (pilar com categorias, ex: Comida do Dia a Dia) */
+function mostrarCategorias(wrap, body, pilar){
+  body.innerHTML = '';
+
+  const label = document.createElement('div');
+  label.className = 'inline-catalog-label';
+  label.textContent = `${pilar.emoji} ${pilar.titulo} — escolha uma categoria:`;
+  body.appendChild(label);
+
+  const grid = document.createElement('div');
+  grid.className = 'state-grid';
+  pilar.categorias.forEach(cat => {
+    const btn = document.createElement('button');
+    btn.className = 'state-btn';
+    btn.textContent = `${cat.emoji} ${cat.nome}`;
+    btn.onclick = () => {
+      mostrarPratosDeCategoria(wrap, body, pilar, cat);
+      rolarParaTopoCatalogo(wrap);
+    };
+    grid.appendChild(btn);
+  });
+  body.appendChild(grid);
+
+  const backBtn = document.createElement('button');
+  backBtn.className = 'recipe-back-btn';
+  backBtn.textContent = '← Voltar ao cardápio';
+  backBtn.onclick = () => { mostrarPilares(wrap, body); rolarParaTopoCatalogo(wrap); };
+  body.appendChild(backBtn);
+}
+
+/* Nível 3 (pilar com categorias): receitas da categoria escolhida */
+function mostrarPratosDeCategoria(wrap, body, pilar, cat){
+  body.innerHTML = '';
+
+  const label = document.createElement('div');
+  label.className = 'inline-catalog-label';
+  label.textContent = `${cat.emoji} ${cat.nome} — escolha uma receita:`;
+  body.appendChild(label);
+
+  const list = document.createElement('div');
+  list.className = 'recipe-list';
+  cat.pratos.forEach(prato => {
+    const item = document.createElement('button');
+    item.className = 'recipe-item';
+    item.textContent = prato;
+    item.onclick = () => {
+      const continuar = () => {
+        textInput.value = pratoPrompt(prato);
+        sendMessage();
+      };
+      if(exigeConfiguracao(continuar)) return;
+      continuar();
+    };
+    list.appendChild(item);
+  });
+  body.appendChild(list);
+
+  const backBtn = document.createElement('button');
+  backBtn.className = 'recipe-back-btn';
+  backBtn.textContent = '← Voltar às categorias';
+  backBtn.onclick = () => { mostrarCategorias(wrap, body, pilar); rolarParaTopoCatalogo(wrap); };
+  body.appendChild(backBtn);
+}
+
+/* Nível 2 (pilares simples): lista de receitas do pilar escolhido */
+function mostrarPratosSimples(wrap, body, pilar){
+  body.innerHTML = '';
+
+  const label = document.createElement('div');
+  label.className = 'inline-catalog-label';
+  label.textContent = `${pilar.emoji} ${pilar.titulo} — escolha uma receita:`;
+  body.appendChild(label);
+
+  const list = document.createElement('div');
+  list.className = 'recipe-list';
+  pilar.pratos.forEach(prato => {
+    const item = document.createElement('button');
+    item.className = 'recipe-item';
+    item.textContent = prato;
+    item.onclick = () => {
+      const continuar = () => {
+        textInput.value = pratoPrompt(prato);
+        sendMessage();
+      };
+      if(exigeConfiguracao(continuar)) return;
+      continuar();
+    };
+    list.appendChild(item);
+  });
+  body.appendChild(list);
+
+  const backBtn = document.createElement('button');
+  backBtn.className = 'recipe-back-btn';
+  backBtn.textContent = '← Voltar ao cardápio';
+  backBtn.onclick = () => { mostrarPilares(wrap, body); rolarParaTopoCatalogo(wrap); };
   body.appendChild(backBtn);
 }
 
